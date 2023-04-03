@@ -1,6 +1,6 @@
-FROM {{base-image}}
+FROM python:3.9-alpine
 
-# TAG={{tag}}
+# TAG=3.9
 
 LABEL author="baterflyrity"
 LABEL mail="baterflyrity@yandex.ru"
