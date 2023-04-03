@@ -20,3 +20,22 @@ container will be deleted automatically (option `--rm`) on exit. One can force c
 ```bash
 docker stop pythonssh
 ```
+
+# Building from sources
+
+Requirements:
+
+* docker
+* python3.11
+* git
+
+```bash
+python3.11 -m pip install typer[all]
+git clone https://github.com/baterflyrity/pythonssh.git
+cd  pythonssh
+python3.11 builder make --image python:3.11-alpine --image python:3.10-alpine --password 123 # insert non-default root password
+python3.11 builder build --name "user/pythonssh" # insert your username
+# optionally upload to dockerhub
+python3.11 builder push --name "user/pythonssh" # insert your username
+
+```
