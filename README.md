@@ -57,7 +57,7 @@ python3.11 builder.py push
 
 # See also
 
-* [baterflyrity/python-autostart](https://hub.docker.com/r/baterflyrity/python-autostart) - docker image with sutom autostart commands and preinstalled python.
+* [baterflyrity/python-autostart](https://hub.docker.com/r/baterflyrity/python-autostart) - docker image with custom autostart commands and preinstalled python.
 
 # Changelog
 
