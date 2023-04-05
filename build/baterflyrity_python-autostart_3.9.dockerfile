@@ -1,14 +1,18 @@
-FROM alpine
 
-# TAG=alpine
+FROM baterflyrity/python-autostart:3.9
+
+# TAG=3.9
 
 LABEL author="baterflyrity"
 LABEL mail="baterflyrity@yandex.ru"
 LABEL home="https://github.com/baterflyrity/pythonssh"
-LABEL version="1.0.0"
-LABEL description="SSH server (sshd) container with user root and password 123."
+LABEL version="1.1.0"
+LABEL description="SSH server (sshd) container with user root and password 123. Comes with preinstalled python."
 
 # see https://github.com/panubo/docker-sshd
+
+
+# Install sshd
 RUN apk update && \
     apk add bash git openssh rsync augeas shadow rssh && \
     deluser $(getent passwd 33 | cut -d: -f1) && \
@@ -19,16 +23,8 @@ RUN apk update && \
     cp -a /etc/ssh /etc/ssh.cache && \
     rm -rf /var/cache/apk/*
 
-# add user root with password 123 to login via ssh
-ENV SSH_ENABLE_ROOT=true
-ENV SSH_ENABLE_PASSWORD_AUTH=true
-ENV SSH_ENABLE_ROOT_PASSWORD_AUTH=true
-COPY setpasswd.sh /etc/entrypoint.d/setpasswd.sh
-
+# Run sshd on startup
+COPY sshd.sh /sshd.sh
 EXPOSE 22
-
-COPY entry.sh /entry.sh
-
-ENTRYPOINT ["/entry.sh"]
-
-CMD ["/usr/sbin/sshd", "-D", "-e", "-f", "/etc/ssh/sshd_config"]
+ENV AUTOSTART_SSHD="/sshd.sh /usr/sbin/sshd -Def /etc/ssh/sshd_config"
+# base image should be baterflyrity/python-autostart otherwise define ENTRYPOINT with command above

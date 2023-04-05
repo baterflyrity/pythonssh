@@ -2,8 +2,6 @@
 
 set -e
 
-[ "$DEBUG" == 'true' ] && set -x
-
 DAEMON=sshd
 
 echo "> Starting SSHD"
@@ -109,108 +107,33 @@ else
     fi
 fi
 
-# Unlock root account, if enabled
-if [[ "${SSH_ENABLE_ROOT}" == "true" ]]; then
-    echo ">> Unlocking root account"
-    usermod -p '' root
-else
-    echo "INFO: root account is now locked by default. Set SSH_ENABLE_ROOT to unlock the account."
-fi
+# Unlock root account
+echo ">> Unlocking root account"
+usermod -p '' root
 
 # Update MOTD
 if [ -v MOTD ]; then
     echo -e "$MOTD" > /etc/motd
 fi
 
-# PasswordAuthentication (disabled by default)
-if [[ "${SSH_ENABLE_PASSWORD_AUTH}" == "true" ]] || [[ "${SSH_ENABLE_ROOT_PASSWORD_AUTH}" == "true" ]]; then
-    echo 'set /files/etc/ssh/sshd_config/PasswordAuthentication yes' | augtool -s 1> /dev/null
-    echo "WARNING: password authentication enabled."
+# PasswordAuthentication
+echo 'set /files/etc/ssh/sshd_config/PasswordAuthentication yes' | augtool -s 1> /dev/null
+echo "Password authentication enabled."
 
-    # Root Password Authentification
-    if [[ "${SSH_ENABLE_ROOT_PASSWORD_AUTH}" == "true" ]]; then
-        echo 'set /files/etc/ssh/sshd_config/PermitRootLogin yes' | augtool -s 1> /dev/null
-        echo "WARNING: password authentication for root user enabled."
-    else
-        echo "INFO: password authentication is not enabled for the root user. Set SSH_ENABLE_ROOT_PASSWORD_AUTH=true to enable."
-    fi
+# Root Password Authentification
+echo 'set /files/etc/ssh/sshd_config/PermitRootLogin yes' | augtool -s 1> /dev/null
+echo "Password authentication for root user enabled."
 
-else
-    echo 'set /files/etc/ssh/sshd_config/PasswordAuthentication no' | augtool -s 1> /dev/null
-    echo "INFO: password authentication is disabled by default. Set SSH_ENABLE_PASSWORD_AUTH=true to enable."
-fi
 
-configure_sftp_only_mode() {
-    echo "INFO: configuring sftp only mode"
-    : ${SFTP_CHROOT:='/data'}
-    chown 0:0 ${SFTP_CHROOT}
-    chmod 755 ${SFTP_CHROOT}
-    printf '%s\n' \
-        'set /files/etc/ssh/sshd_config/Subsystem/sftp "internal-sftp"' \
-        'set /files/etc/ssh/sshd_config/AllowTCPForwarding no' \
-        'set /files/etc/ssh/sshd_config/GatewayPorts no' \
-        'set /files/etc/ssh/sshd_config/X11Forwarding no' \
-        'set /files/etc/ssh/sshd_config/ForceCommand internal-sftp' \
-        "set /files/etc/ssh/sshd_config/ChrootDirectory ${SFTP_CHROOT}" \
-    | augtool -s 1> /dev/null
-}
 
-configure_scp_only_mode() {
-    echo "INFO: configuring scp only mode"
-    USERS=$(echo $SSH_USERS | tr "," "\n")
-    for U in $USERS; do
-        _NAME=$(echo "${U}" | cut -d: -f1)
-        usermod -s '/usr/bin/rssh' ${_NAME}
-    done
-    (grep '^[a-zA-Z]' /etc/rssh.conf.default; echo "allowscp") > /etc/rssh.conf
-}
+# Configure ssh options
+# Enable AllowTcpForwarding
+echo 'set /files/etc/ssh/sshd_config/AllowTcpForwarding yes' | augtool -s 1> /dev/null
+# Enable GatewayPorts
+echo 'set /files/etc/ssh/sshd_config/GatewayPorts yes' | augtool -s 1> /dev/null
 
-configure_rsync_only_mode() {
-    echo "INFO: configuring rsync only mode"
-    USERS=$(echo $SSH_USERS | tr "," "\n")
-    for U in $USERS; do
-        _NAME=$(echo "${U}" | cut -d: -f1)
-        usermod -s '/usr/bin/rssh' ${_NAME}
-    done
-    (grep '^[a-zA-Z]' /etc/rssh.conf.default; echo "allowrsync") > /etc/rssh.conf
-}
-
-configure_ssh_options() {
-    # Enable AllowTcpForwarding
-    if [[ "${TCP_FORWARDING}" == "true" ]]; then
-        echo 'set /files/etc/ssh/sshd_config/AllowTcpForwarding yes' | augtool -s 1> /dev/null
-    fi
-    # Enable GatewayPorts
-    if [[ "${GATEWAY_PORTS}" == "true" ]]; then
-        echo 'set /files/etc/ssh/sshd_config/GatewayPorts yes' | augtool -s 1> /dev/null
-    fi
-    # Disable SFTP
-    if [[ "${DISABLE_SFTP}" == "true" ]]; then
-        printf '%s\n' \
-            'rm /files/etc/ssh/sshd_config/Subsystem/sftp' \
-            'rm /files/etc/ssh/sshd_config/Subsystem' \
-        | augtool -s 1> /dev/null
-    fi
-}
-
-# Configure mutually exclusive modes
-if [[ "${SFTP_MODE}" == "true" ]]; then
-    configure_sftp_only_mode
-elif [[ "${SCP_MODE}" == "true" ]]; then
-    configure_scp_only_mode
-elif [[ "${RSYNC_MODE}" == "true" ]]; then
-    configure_rsync_only_mode
-else
-    configure_ssh_options
-fi
-
-# Run scripts in /etc/entrypoint.d
-for f in /etc/entrypoint.d/*; do
-    if [[ -x ${f} ]]; then
-        echo ">> Running: ${f}"
-        ${f}
-    fi
-done
+# Setup root password
+echo "root:{{password}}" | chpasswd
 
 stop() {
     echo "Received SIGINT or SIGTERM. Shutting down $DAEMON"
